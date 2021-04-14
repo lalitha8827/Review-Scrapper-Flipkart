@@ -23,67 +23,117 @@ def index():
             #if reviews.count() > 0: # if there is a collection with searched keyword and it has records in it
             #    return render_template('results.html',reviews=reviews) # show the results to user
             #else:
-                flipkart_url = "https://www.flipkart.com/search?q=" + searchString # preparing the URL to search the product on flipkart
-                uClient = uReq(flipkart_url) # requesting the webpage from the internet
-                flipkartPage = uClient.read() # reading the webpage
-                uClient.close() # closing the connection to the web server
-                flipkart_html = bs(flipkartPage, "html.parser") # parsing the webpage as HTML
-                bigboxes = flipkart_html.findAll("div", {"class": "_1AtVbE col-12-12"}) # seacrhing for appropriate tag to redirect to the product link
-                del bigboxes[0:3] # the first 3 members of the list do not contain relevant information, hence deleting them.
-                box = bigboxes[0] #  taking the first iteration (for demo)
-                productLink = "https://www.flipkart.com" + box.div.div.div.a['href'] # extracting the actual product link
-                prodRes = requests.get(productLink) # getting the product page from server
-                prod_html = bs(prodRes.text, "html.parser") # parsing the product page as HTML
-                commentboxes = prod_html.find_all('div', {'class': "_16PBlm"}) # finding the HTML section containing the customer comments
-
-                #table = db[searchString] # creating a collection with the same name as search string. Tables and Collections are analogous.
-                #filename = searchString+".csv" #  filename to save the details
-                #fw = open(filename, "w") # creating a local file to save the details
-                #headers = "Product, Customer Name, Rating, Heading, Comment \n" # providing the heading of the columns
-                #fw.write(headers) # writing first the headers to file
-                reviews = [] # initializing an empty list for reviews
-                #  iterating over the comment section to get the details of customer and their comments
-                #overall rating
+            flipkart_url = "https://www.flipkart.com/search?q=" + searchString
+            uClient = uReq(flipkart_url)
+            flipkartPage = uClient.read()
+            uClient.close()
+            flipkart_html = bs(flipkartPage, "html.parser")
+            bigboxes = flipkart_html.findAll("div", {"class": "_1AtVbE col-12-12"})
+            del bigboxes[0:3]
+            box = bigboxes[0]
+            productLink = "https://www.flipkart.com" + box.div.div.div.a['href']
+            prodRes = requests.get(productLink)
+            prod_html = bs(prodRes.text, "html.parser")
+            commentboxes = prod_html.find_all('div', {'class': "_16PBlm"})
+            reviews = []
+            i = 0
+            try:
+                whole_rating = prod_html.find_all('div', {'class': "_2d4LTz"})[0].text
+            except:
+                whole_rating = "No ratings yet"
+            try:
+                prod_name = prod_html.find_all('span', {"class": "B_NuCI"})[0].text
+            except:
+                prod_name = searchString
+            try:
+                price = prod_html.find_all('div', {'class': '_30jeq3'})[0].text
+            except:
+                price = "Zero"
+            for commentbox in commentboxes[:]:
+                i += 1
                 try:
-                    whole_rating = prod_html.find_all('div', {'class': "_2d4LTz"})[0].text
+                    name = commentbox.div.div.find_all('p', {'class': '_2sc7ZR _2V5EHH'})[0].text
+
                 except:
-                    whole_rating="No ratings yet"
-                #price
+                    name = 'Anonymous'
+
                 try:
-                    price=prod_html.find_all('div', {'class': '_30jeq3'})[0].text
+                    rating = commentbox.div.div.div.div.text
+
                 except:
-                    price="Zero"
-                for commentbox in commentboxes:
-                    try:
-                        name = commentbox.div.div.find_all('p', {'class': '_2sc7ZR _2V5EHH'})[0].text
+                    rating = 'No Rating'
 
-                    except:
-                        name = 'Anonymous'
+                try:
+                    commentHead = commentbox.div.div.div.p.text
+                except:
+                    commentHead = 'No Comment Heading'
+                try:
+                    comtag = commentbox.div.div.find_all('div', {'class': ''})
+                    custComment = comtag[0].div.text
+                except:
+                    custComment = 'No Customer Comment'
+                mydict = {"i": i, "Product Name": prod_name, "Product Price": price,"Overall Rating": whole_rating, "Customer Name": name,
+                          "Customer Rating": rating, "CommentHead": commentHead,
+                          "Comment": custComment}
+                reviews.append(mydict)
 
-                    try:
-                        rating = commentbox.div.div.div.div.text
+            try:
+                k = prod_html.find_all('div', {"class": "col JOpGWq"})[0].find_all('a', {"class": ""})[-1].get("href")
+            except:
+                k = ""
+            if (k == '' or len(reviews) < 10):
+                return render_template('results.html', reviews=reviews)
+            else:
+                ans = "https://www.flipkart.com" + k
+                sec = requests.get(ans)
+                prod_sec = bs(sec.text, "html.parser")
+                x2 = []
+                for i1 in prod_sec.find_all('nav', {"class": "yFHi8N"})[0].find_all('a'):
+                    x2.append(i1.get("href"))
+                l = []
+                for c in range(len(x2) - 1):
+                    l.append(prod_sec.find_all('nav', {"class": "yFHi8N"})[0].find_all('a', {"class": "ge-49M"})[c].get(
+                        "href"))
+                k = 0
+                if (len(l) != 0):
+                    for j in l:
+                        ans = "https://www.flipkart.com" + j
+                        sec = requests.get(ans)
+                        prod_sec = bs(sec.text, "html.parser")
+                        x = prod_sec.find_all("div", {"class": "_27M-vq"})
+                        for i in x:
+                            k += 1
+                            try:
+                                name = i.div.div.find_all('p', {'class': '_2sc7ZR _2V5EHH'})[0].text
 
-                    except:
-                        rating = 'No Rating'
+                            except:
+                                name = 'Anonymous'
 
-                    try:
-                        commentHead = commentbox.div.div.div.p.text
-                    except:
-                        commentHead = 'No Comment Heading'
-                    try:
-                        comtag = commentbox.div.div.find_all('div', {'class': ''})
-                        custComment = comtag[0].div.text
-                    except:
-                        custComment = 'No Customer Comment'
-                    #fw.write(searchString+","+name.replace(",", ":")+","+rating + "," + commentHead.replace(",", ":") + "," + custComment.replace(",", ":") + "\n")
-                    mydict = {"Product Name": searchString, "Overall Rating":whole_rating,"Customer Name": name, "Customer Rating": rating, "CommentHead": commentHead,
-                              "Comment": custComment,"Product Price":price} # saving that detail to a dictionary
-                    #x = table.insert_one(mydict) #insertig the dictionary containing the rview comments to the collection
-                    reviews.append(mydict) #  appending the comments to the review list
-                return render_template('results.html', reviews=reviews) # showing the review to the user
+                            try:
+                                rating = i.div.div.div.div.text
+
+                            except:
+                                rating = 'No Rating'
+
+                            try:
+                                commentHead = i.div.div.div.p.text
+                            except:
+                                commentHead = 'No Comment Heading'
+                            try:
+                                comtag = i.div.div.find_all('div', {'class': ''})
+                                custComment = comtag[0].div.text
+                            except:
+                                custComment = 'No Customer Comment'
+                            mydict = {"i": k, "Product Name": prod_name, "Product Price": price,
+                                      "Overall Rating": whole_rating, "Customer Name": name, "Customer Rating": rating,
+                                      "CommentHead": commentHead,
+                                      "Comment": custComment}
+                            reviews.append(mydict)
+                return render_template('results.html', reviews=reviews[11:])
+
         except:
             return 'something is wrong'
-            #return render_template('results.html')
+         
     else:
         return render_template('index.html')
 if __name__ == "__main__":
